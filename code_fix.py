@@ -2,6 +2,7 @@ import sys
 
 from decrypt import decrypt_buffer_basic_xor, decrypt_buffer_block, decrypt_ctr, decrypt_des
 from unscramble import correct_py_bytecode, unscramble_opcode_mixer
+import hexdump
 
 # from unpyarmor code: https://github.com/nlscc/unpyarmor
 # note: there are still a lot of issues with the
@@ -11,7 +12,8 @@ from unscramble import correct_py_bytecode, unscramble_opcode_mixer
 class CodeFixer():
     # JUMP_IF_FALSE_OR_POP, JUMP_IF_TRUE_OR_POP, JUMP_ABSOLUTE, POP_JUMP_IF_FALSE, POP_JUMP_IF_TRUE, CONTINUE_LOOP, JUMP_IF_NOT_EXC_MATCH
     #             0x6f   70   71   72   73   77   79
-    JUMP_OPCODES = [111, 112, 113, 114, 115, 119, 121]
+    # JUMP_OPCODES = [111, 112, 113, 114, 115, 119, 121]
+    JUMP_OPCODES = [111, 112, 113, 114, 115, 119]
 
     def __init__(self, key, iv):
         if sys.hexversion >= 0x3080000: # 3.8
@@ -23,16 +25,17 @@ class CodeFixer():
     def fix_code(self, code, stub_size, end_code):
         #nop_count = stub_size // 2
         #code = b"\x09\x00"*nop_count + code + end_code
-
+        
         # replace jump to stub with return
-        code = code[:-2] + b"S\x00" # RETURN_VALUE
+        # code = code[:-2] + b"S\x00" # RETURN_VALUE
+        code = code[:-1] + "S" + "\x00"*(len(code)%2) # RETURN_VALUE
         # fix absolute jumps
         extend = None
         code = bytearray(code)
         for i in range(0, len(code), 2):
             op = code[i]
             arg = code[i+1]
-            if op == 144: # extend opcode
+            if op == 145: # extend opcode
                 extend = arg << 8
                 continue
             if op in self.JUMP_OPCODES:
@@ -55,7 +58,9 @@ class CodeFixer():
                     else:
                         code[i+1] = arg
             extend = None
-
+        
+        if code[-1] == 0:
+            code = code[:-1]
         return bytes(code)
 
     def decrypt_code_enter_exit(self, code, flags):
@@ -66,11 +71,11 @@ class CodeFixer():
         elif sys.hexversion >= 0x3080000: # 3.8
             sbeg, send = 32, 16
         else:
-            raise Exception(f"invalid python version?: {sys.hexversion}")
+            raise Exception("invalid python version?: {}".format(sys.hexversion))
         
         og_code = code
         enc = code[sbeg:-send]
-
+        hexdump.hexdump(enc)
         if flags & 0x8000000:
             if flags & 0x2000000:
                 print("decoding mode 1...")
@@ -83,8 +88,14 @@ class CodeFixer():
         else:
             if flags & 0x2000000:
                 print("decoding mode 3...")
+                hexdump.hexdump(enc[:-16])
+                print("----------------------------------------------------------------------------")
                 code = decrypt_buffer_block(enc[:-16], self.key[0x32:0x4a], code[-16:], False)
+                hexdump.hexdump(str(code))
+                print("----------------------------------------------------------------------------")
                 code = self.fix_code(code, 16, og_code[-send-16:-16])
+                hexdump.hexdump(str(code))
+                print("----------------------------------------------------------------------------")
             else:
                 print("decoding mode 4...")
                 code = decrypt_des(enc, self.key[0x32:0x4a], self.iv, False)
@@ -159,15 +170,18 @@ class CodeFixer():
             if isinstance(const, type(co)):
                 if i+1 < len(co.co_consts):
                     # not reliable
-                    print(f"fixing {co.co_consts[i+1]}...")
+                    if isinstance(co.co_consts[i+1], unicode):
+                        print("fixing {}...".format(co.co_consts[i+1].encode("utf-8")))
+                    else:
+                        print("fixing {}...".format(co.co_consts[i+1]))
                 else:
                     print("fixing <unknown>...")
                 
                 const = self.deobfusc_codeobj(const)
             
             consts.append(const)
-        
-        print(f"flags: {flags:08x}")
+        hexdump.hexdump(code)
+        print("flags: {:08x}".format(flags))
         if flags & 0x48000000:
             if "__armor_enter__" in co.co_names and "__armor_exit__" in co.co_names: # wrap_mode == 1
                 code = self.decrypt_code_enter_exit(co.co_code, flags)
@@ -184,7 +198,7 @@ class CodeFixer():
         # change the code and flags of the code object to the deobfuscated version
         if sys.hexversion < 0x3080000:
             code_c = type(co)
-            co = code_c(co.co_argcount, co.co_kwonlyargcount, co.co_nlocals,
+            co = code_c(co.co_argcount, co.co_nlocals,
                 co.co_stacksize, flags, code, tuple(consts), co.co_names,
                 co.co_varnames, co.co_filename, co.co_name, co.co_firstlineno,
                 co.co_lnotab, co.co_freevars, co.co_cellvars)
@@ -299,7 +313,7 @@ class CodeFixerSuper():
             if isinstance(const, type(co)):
                 if i+1 < len(co_consts):
                     # not reliable
-                    print(f"fixing {co_consts[i+1]}...")
+                    print("fixing {}...".format(co_consts[i+1]))
                 else:
                     print("fixing <unknown>...")
                 
@@ -307,7 +321,7 @@ class CodeFixerSuper():
             
             consts.append(const)
         
-        print(f"flags: {flags:08x}")
+        print("flags: {:08x}".format(flags))
         if flags & 0x48000000:
             if "__armor_wrap__" in co.co_names:
                 code = self.decrypt_code_armor_wrap(co.co_code, flags)

@@ -11,9 +11,11 @@ import marshal
 import base64
 import sys
 import os
+import hexdump
+import struct
 
 class Decoder():
-    def __init__(self, pyc_path:str, asm_path:str, mode:DecodeMode):
+    def __init__(self, pyc_path, asm_path, mode):
         self.pyc_path = pyc_path
         self.asm_path = asm_path
         self.mode = mode
@@ -26,12 +28,16 @@ class Decoder():
 
         print("pyarmor license info:")
         for item in license_info:
-            print(f"  {item}")
+            print("  {}".format(item))
         
         pyarmor_bytes_enc = self.get_pyarmor_bytes()
+        print("pyarmor bytes enc:")
+        hexdump.hexdump(pyarmor_bytes_enc)
         pyarmor_bytes_key, pyarmor_bytes_nonce = self.get_pyarmor_key_nonce(product_key_key, pyarmor_bytes_enc)
         pyarmor_bytes = self.decode_pyarmor_bytes(pyarmor_bytes_enc, pyarmor_bytes_key, pyarmor_bytes_nonce)
-
+        # with open(self.pyc_path, "rb") as f:
+            # pyarmor_bytes = f.read()
+            
         if self.mode == DecodeMode.SuperMode:
             zoombie = get_zoombie(product_key_key, product_key_iv)
             code_fixer = CodeFixerSuper(product_key_key, product_key_iv, zoombie)
@@ -49,9 +55,23 @@ class Decoder():
 
             pyarmor_marshal = marshal.loads(pyarmor_bytes)
             pyarmor_marshal_fix = code_fixer.deobfusc_codeobj(pyarmor_marshal)
-
-            armor_wrap_pyc = importlib._bootstrap_external._code_to_timestamp_pyc(pyarmor_marshal_fix) # type: ignore
             
+            # armor_wrap_pyc = importlib._bootstrap_external._code_to_timestamp_pyc(pyarmor_marshal_fix) # type: ignore
+            import imp
+            MAGIC_NUMBER = imp.get_magic()
+            def _pack_uint32(val):
+                """ Convert integer to 32-bit little-endian bytes """
+                return struct.pack("<I", val)
+
+            mtime = 0
+            source_size = 0
+            data = bytearray(MAGIC_NUMBER)
+            # data.extend(_pack_uint32(0))
+            data.extend(_pack_uint32(mtime))
+            # data.extend(_pack_uint32(source_size))
+            data.extend(marshal.dumps(pyarmor_marshal_fix))
+            armor_wrap_pyc = data
+
             fix_pyc_filename = sys.argv[1] + ".fix.pyc"
             self.write_pyc(armor_wrap_pyc, fix_pyc_filename)
             self.decompile_pyc(fix_pyc_filename)
@@ -80,11 +100,17 @@ class Decoder():
             exit(1)
 
         pyshield_lic_ptr = read_mem_u32(data, data_pos + 0x00) + data_pos + 24
+        print(hex((pyshield_lic_ptr)))
         pyshield_lic_len = read_mem_u32(data, data_pos + 0x04)
+        print(hex((pyshield_lic_len)))
         product_key_ptr  = read_mem_u32(data, data_pos + 0x08) + data_pos + 24
+        print(hex((product_key_ptr)))
         product_key_len  = read_mem_u32(data, data_pos + 0x0c)
+        print(hex((product_key_len)))
         license_lic_ptr  = read_mem_u32(data, data_pos + 0x10) + data_pos + 24
+        print(hex((license_lic_ptr)))
         license_lic_len  = read_mem_u32(data, data_pos + 0x14)
+        print(hex((license_lic_len)))
 
         self.pyshield_lic_enc = data[pyshield_lic_ptr : pyshield_lic_ptr+pyshield_lic_len]
         self.product_key_enc = data[product_key_ptr : product_key_ptr+product_key_len]
@@ -100,7 +126,7 @@ class Decoder():
     
     def decode_license_lic(self, license_lic):
         license_lic = base64.b64decode(license_lic)
-        header_len = license_lic[0] # no idea what happens if this is too long
+        header_len = ord(license_lic[0]) # no idea what happens if this is too long
         return license_lic[1:header_len+1].decode("utf-8").split("\n")
     
     def get_pyarmor_bytes(self):
@@ -127,10 +153,11 @@ class Decoder():
         key_d1 = read_mem_u32(product_key, 0x32)
         key_d2 = read_mem_u32(pyarmor_bytes, 0x34) + 0x251a
         write_mem_u32(key, 0x0c, key_d1 ^ key_d2)
-
-        key = bytes(key)
+        
+        key = bytearray(key)
+        hexdump.hexdump(str(key))
         nonce = bytes(pyarmor_bytes[0x28:0x34])
-
+        hexdump.hexdump(nonce)
         return (key, nonce)
     
     def decode_pyarmor_bytes(self, pyarmor_bytes, key, nonce):

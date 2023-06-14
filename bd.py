@@ -18,7 +18,7 @@ def main():
     asm_path = sys.argv[2]
 
     decode_mode = DecodeMode.Unknown
-    if asm_path.lower().endswith("_pytransform.dll"):
+    if asm_path.lower().endswith("_pytransform.dll") or asm_path.lower().endswith("_pytransform.so"):
         decode_mode = DecodeMode.BasicMode
     elif asm_path.lower().endswith("pytransform.pyd"):
         decode_mode = DecodeMode.SuperMode

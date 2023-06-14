@@ -1,3 +1,11 @@
+# bonedensityPy27
+bonedensityPy27 is a Python 2.7 backport of the 
+[bonedensity](https://github.com/nesrak1/bonedensity/tree/main) from Python 3.X.
+
+Update:
+* Support Python2.7
+* Support Linux
+------
 ![logo](logo.png)
 
 See writeup which started this: https://nesrak1.github.io/2022/11/13/flareon09-11.html

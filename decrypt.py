@@ -3,6 +3,7 @@ from Crypto.Cipher import DES3, AES
 from Crypto.Util import Counter
 import subprocess
 import base64
+import hexdump
 
 def decrypt_des(blob, key, iv, inline):
     if not inline:
@@ -29,7 +30,7 @@ def decrypt_des(blob, key, iv, inline):
     seg = [0]*8
     while blob_pos < len(blob):
         if byte_counter == 8:
-            kk = cipher.encrypt(bytes(seg))
+            kk = cipher.encrypt(bytearray(seg))
             seg_pos = 0
             byte_counter = 1
         else:
@@ -37,9 +38,8 @@ def decrypt_des(blob, key, iv, inline):
             byte_counter += 1
         
         seg[seg_pos] = blob[blob_pos]
-        out[blob_pos] = kk[seg_pos] ^ blob[blob_pos]
+        out[blob_pos] = ord(kk[seg_pos]) ^ ord(blob[blob_pos])
         blob_pos += 1
-
     return out
 
 def decrypt_buffer_inline(blob):

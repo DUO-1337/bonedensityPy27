@@ -1,4 +1,6 @@
 import sys, struct, marshal, binascii, time, dis, platform
+import hexdump
+import dis3
 
 # https://stackoverflow.com/a/42720524
 def parse_pyc(file):
@@ -33,10 +35,12 @@ def parse_pyc(file):
 
 def get_pyarmor_bytes(file):
     code = parse_pyc(file)
+    hexdump.hexdump(code.co_code)
+    
 
-    for inst in dis.get_instructions(code):
+    for inst in dis3.get_instructions(code):
         if inst.opname == "LOAD_CONST":
-            if isinstance(inst.argval, bytes):
+            if isinstance(inst.argval, str):
                 possible_pyarmor = inst.argval[:7]
                 if possible_pyarmor == b"PYARMOR":
                     return inst.argval
