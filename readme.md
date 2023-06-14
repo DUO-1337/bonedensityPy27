@@ -5,6 +5,19 @@ bonedensityPy27 is a Python 2.7 backport of the
 Update:
 * Support Python2.7
 * Support Linux
+
+Usage:
+```
+python bd.py encrypted_file.pyc _pytransform.so
+```
+Projects/libraries used:
+* hexdump
+* enum
+* pycryptodome
+* dis3
+
+Missing:
+* only support normal mode
 ------
 ![logo](logo.png)
 
