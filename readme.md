@@ -8,7 +8,7 @@ Update:
 
 Usage:
 ```
-python bd.py encrypted_file.pyc _pytransform.so
+python bd.py encrypted_file.pyc _pytransform.so <debug: default 0>
 ```
 Projects/libraries used:
 * hexdump
