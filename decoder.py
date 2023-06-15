@@ -15,10 +15,14 @@ import hexdump
 import struct
 
 class Decoder():
-    def __init__(self, pyc_path, asm_path, mode):
+    def __init__(self, pyc_path, asm_path, mode, debug):
         self.pyc_path = pyc_path
         self.asm_path = asm_path
         self.mode = mode
+        if debug:
+            pass
+        else:
+            sys.stdout = open(os.devnull, "w")
     
     def decode(self):
         self.load_files()
@@ -74,7 +78,7 @@ class Decoder():
 
             fix_pyc_filename = sys.argv[1] + ".fix.pyc"
             self.write_pyc(armor_wrap_pyc, fix_pyc_filename)
-            self.decompile_pyc(fix_pyc_filename)
+            # self.decompile_pyc(fix_pyc_filename)
     
     def load_files(self):
         # last four bytes may be an unsafe check
