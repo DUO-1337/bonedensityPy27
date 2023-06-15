@@ -1,3 +1,4 @@
+from __future__ import print_function
 import sys
 
 from decrypt import decrypt_buffer_basic_xor, decrypt_buffer_block, decrypt_ctr, decrypt_des
@@ -28,39 +29,31 @@ class CodeFixer():
         
         # replace jump to stub with return
         # code = code[:-2] + b"S\x00" # RETURN_VALUE
-        code = code[:-1] + "S" + "\x00"*(len(code)%2) # RETURN_VALUE
+        code = code[:-1] + "S" # RETURN_VALUE
         # fix absolute jumps
-        extend = None
+        extended_arg = 0
         code = bytearray(code)
-        for i in range(0, len(code), 2):
+        i = 0
+        while i < len(code):
             op = code[i]
-            arg = code[i+1]
-            if op == 145: # extend opcode
-                extend = arg << 8
-                continue
-            if op in self.JUMP_OPCODES:
-                if extend is not None:
-                    arg |= extend
-                    arg -= stub_size
-                    if arg < 0:
+            i = i + 1
+            if op >= 90: # HAVE_ARGUMENT
+                oparg = code[i] + code[i+1]*256 + extended_arg
+                extended_arg = 0
+                i = i + 2
+                if op == 145: # EXTENDED_ARG
+                    extended_arg = oparg*65536
+                if op in self.JUMP_OPCODES:
+                    oparg -= stub_size
+                    if oparg < 0:
                         # convert to return, we're trying to jump back into the stub
-                        code[i] = 0x53
-                        code[i+1] = 0x00
-                    else:                
-                        code[i+1] = arg & 0xff
-                        code[i-1] = arg >> 8
-                else:
-                    arg -= stub_size
-                    if arg < 0:
-                        # convert to return, we're trying to jump back into the stub
-                        code[i] = 0x53
-                        code[i+1] = 0x00
+                        code[i-3] = 0x53
+                        code[i-3+1] = 0x09
+                        code[i-3+2] = 0x09
                     else:
-                        code[i+1] = arg
-            extend = None
-        
-        if code[-1] == 0:
-            code = code[:-1]
+                        code[i-3+1] = oparg & 0xff
+                        code[i-3+2] = (oparg >> 8) & 0xff
+
         return bytes(code)
 
     def decrypt_code_enter_exit(self, code, flags):
@@ -95,6 +88,9 @@ class CodeFixer():
                 print("----------------------------------------------------------------------------")
                 code = self.fix_code(code, 16, og_code[-send-16:-16])
                 hexdump.hexdump(str(code))
+                # for i in range(len(code)):
+                #     print("\\x{:02x}".format(ord(code[i])),end="")
+                # print("")
                 print("----------------------------------------------------------------------------")
             else:
                 print("decoding mode 4...")
