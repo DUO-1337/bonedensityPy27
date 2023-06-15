@@ -16,6 +16,9 @@ def main():
     
     pyc_path = sys.argv[1]
     asm_path = sys.argv[2]
+    debug = 0
+    if len(sys.argv) > 3:
+        debug = int(sys.argv[3])
 
     decode_mode = DecodeMode.Unknown
     if asm_path.lower().endswith("_pytransform.dll") or asm_path.lower().endswith("_pytransform.so"):
@@ -30,7 +33,7 @@ def main():
         print("If it came like this, it's probably not supported.")
         exit(1)
     
-    decoder = Decoder(pyc_path, asm_path, decode_mode)
+    decoder = Decoder(pyc_path, asm_path, decode_mode, debug)
     decoder.decode()
 
 if __name__ == "__main__":
