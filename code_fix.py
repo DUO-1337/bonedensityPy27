@@ -29,7 +29,7 @@ class CodeFixer():
         
         # replace jump to stub with return
         # code = code[:-2] + b"S\x00" # RETURN_VALUE
-        code = code[:-1] + "S" # RETURN_VALUE
+        # code = code[:-1] + "S" # RETURN_VALUE
         # fix absolute jumps
         extended_arg = 0
         code = bytearray(code)
